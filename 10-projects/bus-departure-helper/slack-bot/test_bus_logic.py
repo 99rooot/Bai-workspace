@@ -43,6 +43,20 @@ class BusLogicTest(unittest.TestCase):
         self.assertIn("06:30", result["message"])
         self.assertNotIn("13:13", result["message"])
 
+    def test_before_first_bus_uses_4401(self):
+        result = decide(datetime(2026, 7, 22, 2, 0, tzinfo=KST), 20, None)
+        self.assertEqual(result["title"], "4401 추천")
+        self.assertIn("7분 뒤 출발", result["message"])
+
+    def test_reply_always_shows_both_routes(self):
+        text = slack_reply(datetime(2026, 7, 22, 2, 0, tzinfo=KST), 20, None)
+        self.assertIn("• 연수01: 첫차 06:30", text)
+        self.assertIn("• 4401: 20분 뒤 (실시간)", text)
+
+        no_arrival_text = slack_reply(datetime(2026, 7, 22, 9, 0, tzinfo=KST), None, None)
+        self.assertIn("• 연수01:", no_arrival_text)
+        self.assertIn("• 4401: 도착 예정 정보 없음", no_arrival_text)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -88,6 +88,17 @@ def decide(now: datetime, arrival_4401: int | None, arrival_yeonsu01: int | None
 
     if now_minutes < 13 * 60 + 13:
         if now_minutes < 6 * 60 + 30:
+            if arrival_4401 is not None and arrival_4401 >= lead:
+                leave_4401 = arrival_4401 - lead
+                return {
+                    "title": "4401 추천",
+                    "message": f"연수01 운행 전입니다. 4401은 {arrival_4401}분 뒤라 {leave_4401}분 뒤 출발하면 됩니다.",
+                }
+            if arrival_4401 is not None:
+                return {
+                    "title": "4401은 빠듯",
+                    "message": f"연수01 운행 전이고 4401은 {arrival_4401}분 뒤라 학교 출발 기준 {lead}분보다 빠릅니다.",
+                }
             return {
                 "title": "오전 첫차 안내",
                 "message": "오늘 연수01 첫차는 06:30이며 평일 약 30분 간격으로 운행합니다. 운행 시작 후 다시 물어보면 실시간 도착 정보를 확인합니다.",
@@ -148,4 +159,27 @@ def slack_reply(
     checked_at = now or datetime.now(KST)
     result = decide(checked_at, arrival_4401, arrival_yeonsu01)
     time_text = checked_at.strftime("%H:%M")
-    return f"*학교 → 집 버스 · {result['title']}*\n{result['message']}\n_{time_text} 기준_"
+    now_minutes = checked_at.hour * 60 + checked_at.minute
+    if arrival_yeonsu01 is not None:
+        yeonsu_status = f"{arrival_yeonsu01}분 뒤 (실시간)"
+    elif now_minutes < 6 * 60 + 30:
+        yeonsu_status = "첫차 06:30"
+    elif now_minutes < 13 * 60 + 13:
+        yeonsu_status = "실시간 정보 없음 · 평일 약 30분 간격"
+    else:
+        schedule = [minutes(value) for value in YEONSU01_SCHEDULE]
+        lead = WALK_MINUTES + BUFFER_MINUTES
+        next_yeonsu = next((value for value in schedule if value >= now_minutes + lead), None)
+        yeonsu_status = (
+            f"{next_yeonsu // 60:02d}:{next_yeonsu % 60:02d} 예상"
+            if next_yeonsu is not None
+            else "오늘 예상표 종료"
+        )
+    bus_4401_status = f"{arrival_4401}분 뒤 (실시간)" if arrival_4401 is not None else "도착 예정 정보 없음"
+    return (
+        f"*학교 → 집 버스 · {result['title']}*\n"
+        f"{result['message']}\n"
+        f"• 연수01: {yeonsu_status}\n"
+        f"• 4401: {bus_4401_status}\n"
+        f"_{time_text} 기준_"
+    )
