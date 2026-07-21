@@ -27,6 +27,16 @@ class BusLogicTest(unittest.TestCase):
         self.assertIn("*학교 → 집 버스", text)
         self.assertIn("_15:05 기준_", text)
 
+    def test_morning_live_yeonsu01(self):
+        result = decide(datetime(2026, 7, 22, 9, 0, tzinfo=KST), None, 20)
+        self.assertEqual(result["title"], "7분 뒤 출발")
+        self.assertIn("실시간 정보", result["message"])
+
+    def test_morning_service_fallback(self):
+        result = decide(datetime(2026, 7, 22, 9, 0, tzinfo=KST), None, None)
+        self.assertEqual(result["title"], "연수01 운행 확인")
+        self.assertIn("06:30", result["message"])
+
 
 if __name__ == "__main__":
     unittest.main()

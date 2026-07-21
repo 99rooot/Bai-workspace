@@ -10,9 +10,10 @@ from urllib.request import Request, urlopen
 
 KST = timezone(timedelta(hours=9))
 ARRIVAL_URL = "https://bus.incheon.go.kr/inq/selectArrivalInfoList.do"
-STOP_ID = "164000809"
-ROUTE_ID = "161000027"
-ROUTE_NO = "4401"
+BUS_4401_STOP_ID = "164000809"
+BUS_4401_ROUTE_ID = "161000027"
+YEONSU01_STOP_ID = "164000811"
+YEONSU01_ROUTE_ID = "161000034"
 WALK_MINUTES = 10
 BUFFER_MINUTES = 3
 YEONSU01_SCHEDULE = [
@@ -33,8 +34,8 @@ def minutes(value: str) -> int:
     return int(hour) * 60 + int(minute)
 
 
-def fetch_4401_minutes(timeout: int = 8) -> int | None:
-    body = urlencode({"bstopid": STOP_ID}).encode("utf-8")
+def fetch_route_minutes(stop_id: str, route_no: str, route_id: str, timeout: int = 8) -> int | None:
+    body = urlencode({"bstopid": stop_id}).encode("utf-8")
     request = Request(
         ARRIVAL_URL,
         data=body,
@@ -48,9 +49,9 @@ def fetch_4401_minutes(timeout: int = 8) -> int | None:
         data = json.loads(response.read().decode("utf-8"))
     arrivals = []
     for item in data.get("resultList") or []:
-        if str(item.get("routeno") or "") != ROUTE_NO:
+        if str(item.get("routeno") or "") != route_no:
             continue
-        if str(item.get("routeid") or "") != ROUTE_ID:
+        if str(item.get("routeid") or "") != route_id:
             continue
         value = str(item.get("arrplantm") or "").strip()
         if value.isdigit():
@@ -58,11 +59,44 @@ def fetch_4401_minutes(timeout: int = 8) -> int | None:
     return min(arrivals) if arrivals else None
 
 
-def decide(now: datetime, arrival_4401: int | None) -> dict[str, str]:
+def fetch_4401_minutes(timeout: int = 8) -> int | None:
+    return fetch_route_minutes(BUS_4401_STOP_ID, "4401", BUS_4401_ROUTE_ID, timeout)
+
+
+def fetch_yeonsu01_minutes(timeout: int = 8) -> int | None:
+    return fetch_route_minutes(YEONSU01_STOP_ID, "연수01", YEONSU01_ROUTE_ID, timeout)
+
+
+def decide(now: datetime, arrival_4401: int | None, arrival_yeonsu01: int | None = None) -> dict[str, str]:
     now_minutes = now.hour * 60 + now.minute
     schedule = [minutes(value) for value in YEONSU01_SCHEDULE]
     lead = WALK_MINUTES + BUFFER_MINUTES
     next_yeonsu = next((value for value in schedule if value >= now_minutes + lead), None)
+
+    if arrival_yeonsu01 is not None:
+        if arrival_yeonsu01 >= lead:
+            leave_in = arrival_yeonsu01 - lead
+            title = "지금 출발" if leave_in == 0 else f"{leave_in}분 뒤 출발"
+            return {
+                "title": title,
+                "message": f"연수01이 {arrival_yeonsu01}분 뒤 도착 예정입니다. 실시간 정보를 기준으로 안내했습니다.",
+            }
+        return {
+            "title": "연수01은 빠듯",
+            "message": f"연수01이 {arrival_yeonsu01}분 뒤라 학교 출발 기준 {lead}분보다 빠릅니다. 4401 정보도 함께 확인하세요.",
+        }
+
+    if 6 * 60 + 30 <= now_minutes < 13 * 60 + 13:
+        if arrival_4401 is not None and arrival_4401 >= lead:
+            leave_4401 = arrival_4401 - lead
+            return {
+                "title": "4401 확인",
+                "message": f"연수01은 오전에도 운행하지만 현재 실시간 도착 분이 없습니다. 4401은 {arrival_4401}분 뒤라 {leave_4401}분 뒤 출발하면 됩니다.",
+            }
+        return {
+            "title": "연수01 운행 확인",
+            "message": "연수01은 06:30 첫차이며 평일 약 30분 간격으로 운행합니다. 현재 실시간 도착 분은 확인되지 않아 버스 앱을 함께 확인하세요.",
+        }
 
     if next_yeonsu is None:
         if arrival_4401 is not None and arrival_4401 >= lead:
@@ -101,8 +135,12 @@ def decide(now: datetime, arrival_4401: int | None) -> dict[str, str]:
     }
 
 
-def slack_reply(now: datetime | None = None, arrival_4401: int | None = None) -> str:
+def slack_reply(
+    now: datetime | None = None,
+    arrival_4401: int | None = None,
+    arrival_yeonsu01: int | None = None,
+) -> str:
     checked_at = now or datetime.now(KST)
-    result = decide(checked_at, arrival_4401)
+    result = decide(checked_at, arrival_4401, arrival_yeonsu01)
     time_text = checked_at.strftime("%H:%M")
     return f"*학교 → 집 버스 · {result['title']}*\n{result['message']}\n_{time_text} 기준_"

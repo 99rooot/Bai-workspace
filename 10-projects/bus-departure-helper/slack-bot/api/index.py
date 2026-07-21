@@ -8,6 +8,7 @@ import json
 import os
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -15,7 +16,7 @@ from urllib.request import Request, urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from bus_logic import fetch_4401_minutes, slack_reply, wants_to_go_home  # noqa: E402
+from bus_logic import fetch_4401_minutes, fetch_yeonsu01_minutes, slack_reply, wants_to_go_home  # noqa: E402
 
 
 def valid_slack_signature(timestamp: str, signature: str, body: bytes) -> bool:
@@ -90,8 +91,12 @@ class handler(BaseHTTPRequestHandler):
             return
 
         try:
-            arrival = fetch_4401_minutes()
-            reply = slack_reply(arrival_4401=arrival)
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                bus_4401 = executor.submit(fetch_4401_minutes)
+                yeonsu01 = executor.submit(fetch_yeonsu01_minutes)
+                arrival_4401 = bus_4401.result()
+                arrival_yeonsu01 = yeonsu01.result()
+            reply = slack_reply(arrival_4401=arrival_4401, arrival_yeonsu01=arrival_yeonsu01)
             post_slack_message(str(event["channel"]), reply, event.get("thread_ts"))
             self.send_json({"ok": True})
         except (KeyError, OSError, RuntimeError, TimeoutError) as error:
