@@ -86,7 +86,12 @@ def decide(now: datetime, arrival_4401: int | None, arrival_yeonsu01: int | None
             "message": f"연수01이 {arrival_yeonsu01}분 뒤라 학교 출발 기준 {lead}분보다 빠릅니다. 4401 정보도 함께 확인하세요.",
         }
 
-    if 6 * 60 + 30 <= now_minutes < 13 * 60 + 13:
+    if now_minutes < 13 * 60 + 13:
+        if now_minutes < 6 * 60 + 30:
+            return {
+                "title": "오전 첫차 안내",
+                "message": "오늘 연수01 첫차는 06:30이며 평일 약 30분 간격으로 운행합니다. 운행 시작 후 다시 물어보면 실시간 도착 정보를 확인합니다.",
+            }
         if arrival_4401 is not None and arrival_4401 >= lead:
             leave_4401 = arrival_4401 - lead
             return {

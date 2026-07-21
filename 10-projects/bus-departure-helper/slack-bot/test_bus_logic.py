@@ -37,6 +37,12 @@ class BusLogicTest(unittest.TestCase):
         self.assertEqual(result["title"], "연수01 운행 확인")
         self.assertIn("06:30", result["message"])
 
+    def test_before_first_bus(self):
+        result = decide(datetime(2026, 7, 22, 2, 0, tzinfo=KST), None, None)
+        self.assertEqual(result["title"], "오전 첫차 안내")
+        self.assertIn("06:30", result["message"])
+        self.assertNotIn("13:13", result["message"])
+
 
 if __name__ == "__main__":
     unittest.main()
