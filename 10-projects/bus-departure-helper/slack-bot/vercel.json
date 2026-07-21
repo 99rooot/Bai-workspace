@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 15
+    }
+  },
+  "rewrites": [
+    { "source": "/slack/events", "destination": "/api" }
+  ]
+}
