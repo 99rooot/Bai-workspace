@@ -161,9 +161,9 @@ def slack_reply(
     time_text = checked_at.strftime("%H:%M")
     now_minutes = checked_at.hour * 60 + checked_at.minute
     if arrival_yeonsu01 is not None:
-        yeonsu_status = f"{arrival_yeonsu01}분 뒤 (실시간)"
+        yeonsu_status = f"{arrival_yeonsu01}분 뒤 (실시간 조회)"
     elif now_minutes < 6 * 60 + 30:
-        yeonsu_status = "첫차 06:30"
+        yeonsu_status = "첫차 06:30 (운행 전 첫차 기준)"
     elif now_minutes < 13 * 60 + 13:
         yeonsu_status = "실시간 정보 없음 · 평일 약 30분 간격"
     else:
@@ -175,11 +175,16 @@ def slack_reply(
             if next_yeonsu is not None
             else "오늘 예상표 종료"
         )
-    bus_4401_status = f"{arrival_4401}분 뒤 (실시간)" if arrival_4401 is not None else "도착 예정 정보 없음"
+    bus_4401_status = (
+        f"{arrival_4401}분 뒤 (실시간 조회)"
+        if arrival_4401 is not None
+        else "도착 예정 정보 없음 (실시간 조회 결과)"
+    )
     return (
         f"*학교 → 집 버스 · {result['title']}*\n"
         f"{result['message']}\n"
         f"• 연수01: {yeonsu_status}\n"
         f"• 4401: {bus_4401_status}\n"
+        f"_연수01은 운행 전에는 첫차 기준, 4401은 정류장 실시간 도착정보 기준_\n"
         f"_{time_text} 기준_"
     )
