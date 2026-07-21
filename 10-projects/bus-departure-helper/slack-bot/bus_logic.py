@@ -101,7 +101,7 @@ def decide(now: datetime, arrival_4401: int | None, arrival_yeonsu01: int | None
                 }
             return {
                 "title": "오전 첫차 안내",
-                "message": "오늘 연수01 첫차는 06:30이며 평일 약 30분 간격으로 운행합니다. 운행 시작 후 다시 물어보면 실시간 도착 정보를 확인합니다.",
+                "message": "연수01은 인천대입구역 기점에서 06:30에 출발합니다. 송도국제도서관에는 그 이후 도착하며, 운행 시작 후 실시간 정보를 확인합니다.",
             }
         if arrival_4401 is not None and arrival_4401 >= lead:
             leave_4401 = arrival_4401 - lead
@@ -111,7 +111,7 @@ def decide(now: datetime, arrival_4401: int | None, arrival_yeonsu01: int | None
             }
         return {
             "title": "연수01 운행 확인",
-            "message": "연수01은 06:30 첫차이며 평일 약 30분 간격으로 운행합니다. 현재 실시간 도착 분은 확인되지 않아 버스 앱을 함께 확인하세요.",
+            "message": "연수01은 인천대입구역 기점에서 06:30에 첫차가 출발합니다. 현재 송도국제도서관 실시간 도착 정보는 없어 버스 앱을 함께 확인하세요.",
         }
 
     if next_yeonsu is None:
@@ -163,7 +163,7 @@ def slack_reply(
     if arrival_yeonsu01 is not None:
         yeonsu_status = f"{arrival_yeonsu01}분 뒤 (실시간 조회)"
     elif now_minutes < 6 * 60 + 30:
-        yeonsu_status = "첫차 06:30 (운행 전 첫차 기준)"
+        yeonsu_status = "기점 첫차 06:30 (송도국제도서관 도착은 이후)"
     elif now_minutes < 13 * 60 + 13:
         yeonsu_status = "실시간 정보 없음 · 평일 약 30분 간격"
     else:
@@ -185,6 +185,6 @@ def slack_reply(
         f"{result['message']}\n"
         f"• 연수01: {yeonsu_status}\n"
         f"• 4401: {bus_4401_status}\n"
-        f"_연수01은 운행 전에는 첫차 기준, 4401은 정류장 실시간 도착정보 기준_\n"
+        f"_연수01은 운행 전에는 기점 출발 시각, 4401은 정류장 실시간 도착정보 기준_\n"
         f"_{time_text} 기준_"
     )

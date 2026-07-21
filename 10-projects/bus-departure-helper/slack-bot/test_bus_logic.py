@@ -50,9 +50,9 @@ class BusLogicTest(unittest.TestCase):
 
     def test_reply_always_shows_both_routes(self):
         text = slack_reply(datetime(2026, 7, 22, 2, 0, tzinfo=KST), 20, None)
-        self.assertIn("• 연수01: 첫차 06:30 (운행 전 첫차 기준)", text)
+        self.assertIn("• 연수01: 기점 첫차 06:30 (송도국제도서관 도착은 이후)", text)
         self.assertIn("• 4401: 20분 뒤 (실시간 조회)", text)
-        self.assertIn("연수01은 운행 전에는 첫차 기준", text)
+        self.assertIn("연수01은 운행 전에는 기점 출발 시각", text)
 
         no_arrival_text = slack_reply(datetime(2026, 7, 22, 9, 0, tzinfo=KST), None, None)
         self.assertIn("• 연수01:", no_arrival_text)
