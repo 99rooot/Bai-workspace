@@ -11,6 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
+from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
@@ -18,6 +19,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bus_logic import fetch_4401_minutes, fetch_yeonsu01_minutes, slack_reply, wants_to_go_home  # noqa: E402
 from calendar_logic import today_schedule_reply, wants_today_schedule  # noqa: E402
+
+
+def safe_error_code(error: Exception, schedule_requested: bool) -> str:
+    if not schedule_requested:
+        return "bus_request_error"
+    if isinstance(error, HTTPError):
+        return f"calendar_http_{error.code}"
+    if isinstance(error, URLError):
+        return "calendar_connection_error"
+    if isinstance(error, UnicodeDecodeError):
+        return "calendar_encoding_error"
+    if isinstance(error, ValueError):
+        return "calendar_format_error"
+    if isinstance(error, TimeoutError):
+        return "calendar_timeout"
+    if isinstance(error, RuntimeError):
+        return "calendar_configuration_error"
+    return "calendar_unknown_error"
 
 
 def valid_slack_signature(timestamp: str, signature: str, body: bytes) -> bool:
@@ -110,4 +129,6 @@ class handler(BaseHTTPRequestHandler):
             post_slack_message(str(event["channel"]), reply, event.get("thread_ts"))
             self.send_json({"ok": True})
         except (KeyError, OSError, RuntimeError, TimeoutError, ValueError) as error:
-            self.send_json({"error": str(error)}, 500)
+            error_code = safe_error_code(error, schedule_requested)
+            print(f"request_failed code={error_code}", file=sys.stderr)
+            self.send_json({"error": error_code}, 500)
