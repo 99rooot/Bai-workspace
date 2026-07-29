@@ -21,17 +21,37 @@ class CalendarEvent:
     all_day: bool = False
 
 
-def wants_today_schedule(text: str) -> bool:
+def wants_schedule(text: str) -> bool:
     compact = "".join(text.lower().split())
     phrases = (
         "오늘일정",
         "오늘스케줄",
+        "내일일정",
+        "내일스케줄",
+        "이번주일정",
+        "이번주스케줄",
+        "다음주일정",
+        "다음주스케줄",
         "일정알려",
         "일정보여",
         "스케줄알려",
         "스케줄보여",
     )
     return any(phrase in compact for phrase in phrases)
+
+
+def schedule_period(text: str, today: date) -> tuple[str, date, date]:
+    compact = "".join(text.lower().split())
+    monday = today - timedelta(days=today.weekday())
+    if "다음주" in compact:
+        start = monday + timedelta(days=7)
+        return "다음 주", start, start + timedelta(days=6)
+    if "이번주" in compact:
+        return "이번 주", monday, monday + timedelta(days=6)
+    if "내일" in compact:
+        target = today + timedelta(days=1)
+        return "내일", target, target
+    return "오늘", today, today
 
 
 def validate_calendar_url(url: str) -> None:
@@ -185,23 +205,40 @@ def parse_today_events(text: str, target: date) -> list[CalendarEvent]:
     return sorted(parsed_events, key=lambda event: (not event.all_day, event.start))
 
 
-def format_today_schedule(events: list[CalendarEvent], target: date) -> str:
-    heading = f"*오늘 일정 · {target.month}월 {target.day}일*"
+def parse_period_events(text: str, start: date, end: date) -> list[CalendarEvent]:
+    events: set[CalendarEvent] = set()
+    target = start
+    while target <= end:
+        events.update(parse_today_events(text, target))
+        target += timedelta(days=1)
+    return sorted(events, key=lambda event: (event.start, not event.all_day, event.summary))
+
+
+def format_schedule(events: list[CalendarEvent], label: str, start: date, end: date) -> str:
+    if start == end:
+        heading = f"*{label} 일정 · {start.month}월 {start.day}일*"
+    else:
+        heading = f"*{label} 일정 · {start.month}월 {start.day}일~{end.month}월 {end.day}일*"
     if not events:
         return f"{heading}\n등록된 일정이 없습니다."
 
     lines = [heading, ""]
     for event in events:
-        if event.all_day:
+        if start == end and event.all_day:
             lines.append(f"• 종일 · {event.summary}")
-        else:
+        elif start == end:
             lines.append(f"• {event.start:%H:%M} · {event.summary}")
+        elif event.all_day:
+            lines.append(f"• {event.start.month}/{event.start.day} 종일 · {event.summary}")
+        else:
+            lines.append(f"• {event.start.month}/{event.start.day} {event.start:%H:%M} · {event.summary}")
     lines.extend(["", f"총 {len(events)}개의 일정이 있습니다."])
     return "\n".join(lines)
 
 
-def today_schedule_reply(url: str, now: datetime | None = None) -> str:
+def schedule_reply(url: str, request_text: str, now: datetime | None = None) -> str:
     checked_at = now or datetime.now(KST)
+    label, start, end = schedule_period(request_text, checked_at.date())
     calendar_text = fetch_calendar_text(url)
-    events = parse_today_events(calendar_text, checked_at.date())
-    return format_today_schedule(events, checked_at.date())
+    events = parse_period_events(calendar_text, start, end)
+    return format_schedule(events, label, start, end)

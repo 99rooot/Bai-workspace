@@ -18,7 +18,7 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bus_logic import fetch_4401_minutes, fetch_yeonsu01_minutes, slack_reply, wants_to_go_home  # noqa: E402
-from calendar_logic import today_schedule_reply, wants_today_schedule  # noqa: E402
+from calendar_logic import schedule_reply, wants_schedule  # noqa: E402
 
 
 def safe_error_code(error: Exception, schedule_requested: bool) -> str:
@@ -107,7 +107,7 @@ class handler(BaseHTTPRequestHandler):
             self.send_json({"ok": True})
             return
         text = str(event.get("text") or "")
-        schedule_requested = wants_today_schedule(text)
+        schedule_requested = wants_schedule(text)
         bus_requested = wants_to_go_home(text)
         if not schedule_requested and not bus_requested:
             self.send_json({"ok": True})
@@ -118,7 +118,7 @@ class handler(BaseHTTPRequestHandler):
                 calendar_url = os.environ.get("GOOGLE_CALENDAR_ICAL_URL", "")
                 if not calendar_url:
                     raise RuntimeError("Google Calendar 읽기 설정이 필요합니다.")
-                reply = today_schedule_reply(calendar_url)
+                reply = schedule_reply(calendar_url, text)
             else:
                 with ThreadPoolExecutor(max_workers=2) as executor:
                     bus_4401 = executor.submit(fetch_4401_minutes)
