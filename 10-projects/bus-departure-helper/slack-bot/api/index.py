@@ -17,6 +17,7 @@ from urllib.request import Request, urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bus_logic import fetch_4401_minutes, fetch_yeonsu01_minutes, slack_reply, wants_to_go_home  # noqa: E402
+from calendar_logic import today_schedule_reply, wants_today_schedule  # noqa: E402
 
 
 def valid_slack_signature(timestamp: str, signature: str, body: bytes) -> bool:
@@ -86,18 +87,27 @@ class handler(BaseHTTPRequestHandler):
         if event.get("type") not in {"message", "app_mention"} or event.get("bot_id") or event.get("subtype"):
             self.send_json({"ok": True})
             return
-        if not wants_to_go_home(str(event.get("text") or "")):
+        text = str(event.get("text") or "")
+        schedule_requested = wants_today_schedule(text)
+        bus_requested = wants_to_go_home(text)
+        if not schedule_requested and not bus_requested:
             self.send_json({"ok": True})
             return
 
         try:
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                bus_4401 = executor.submit(fetch_4401_minutes)
-                yeonsu01 = executor.submit(fetch_yeonsu01_minutes)
-                arrival_4401 = bus_4401.result()
-                arrival_yeonsu01 = yeonsu01.result()
-            reply = slack_reply(arrival_4401=arrival_4401, arrival_yeonsu01=arrival_yeonsu01)
+            if schedule_requested:
+                calendar_url = os.environ.get("GOOGLE_CALENDAR_ICAL_URL", "")
+                if not calendar_url:
+                    raise RuntimeError("Google Calendar 읽기 설정이 필요합니다.")
+                reply = today_schedule_reply(calendar_url)
+            else:
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    bus_4401 = executor.submit(fetch_4401_minutes)
+                    yeonsu01 = executor.submit(fetch_yeonsu01_minutes)
+                    arrival_4401 = bus_4401.result()
+                    arrival_yeonsu01 = yeonsu01.result()
+                reply = slack_reply(arrival_4401=arrival_4401, arrival_yeonsu01=arrival_yeonsu01)
             post_slack_message(str(event["channel"]), reply, event.get("thread_ts"))
             self.send_json({"ok": True})
-        except (KeyError, OSError, RuntimeError, TimeoutError) as error:
+        except (KeyError, OSError, RuntimeError, TimeoutError, ValueError) as error:
             self.send_json({"error": str(error)}, 500)
