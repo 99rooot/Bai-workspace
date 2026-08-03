@@ -19,6 +19,8 @@
 
 첫 버전은 읽기 전용이다. 일정을 생성·수정·삭제하지 않는다.
 
+매일 밤 11시(KST)에는 Vercel Cron이 다음 날 일정을 확인한다. 내일 일정이 있을 때만 기존 봇 DM으로 미리 알림을 보내고, 일정이 없으면 메시지를 보내지 않는다.
+
 연수01은 `164000811`, 4401은 `164000809` 정류장을 사용한다. 오전에 연수01 실시간 도착 분이 없으면 인천대입구역 기점 첫차가 06:30에 출발한다는 참고 정보와 직접 확인 안내를 보여준다. 06:30은 송도국제도서관 도착 시각이 아니다.
 
 - 연수01은 운행 전에는 인천대입구역 기점 출발 시각 06:30을 안내하고, 운행 중 API에 송도국제도서관 도착 예정 분이 있으면 실시간 값으로 바꾼다.
@@ -44,9 +46,13 @@ Vercel에서 이 `slack-bot` 폴더를 프로젝트 루트로 배포한다. 환�
 SLACK_BOT_TOKEN=xoxb로 시작하는 Bot User OAuth Token
 SLACK_SIGNING_SECRET=Slack 앱 Basic Information의 Signing Secret
 GOOGLE_CALENDAR_ICAL_URL=Google Calendar의 비공개 iCal 주소
+CRON_SECRET=Vercel 예약 주소를 보호할 임의의 긴 값
+SLACK_DM_CHANNEL_ID=알림을 받을 기존 봇 DM의 D로 시작하는 채널 ID
 ```
 
 `GOOGLE_CALENDAR_ICAL_URL`은 캘린더 내용을 읽을 수 있는 비밀정보다. 채팅, 코드, GitHub에 붙여넣지 않고 Vercel 환경 변수 화면에만 입력한다. 주소가 노출되면 Google Calendar 설정에서 비공개 주소를 재설정한다.
+
+`CRON_SECRET`은 16자 이상의 임의 값으로 만들고 Sensitive Production 환경 변수로 저장한다. `SLACK_DM_CHANNEL_ID`는 기존 봇 DM의 Slack 웹 주소에서 `D`로 시작하는 마지막 값을 사용한다.
 
 배포 후 주소가 `https://내프로젝트.vercel.app`이라면 Slack Request URL은 다음과 같다.
 

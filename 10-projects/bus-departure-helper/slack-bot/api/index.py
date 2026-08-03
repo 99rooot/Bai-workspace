@@ -12,13 +12,13 @@ from concurrent.futures import ThreadPoolExecutor
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from bus_logic import fetch_4401_minutes, fetch_yeonsu01_minutes, slack_reply, wants_to_go_home  # noqa: E402
 from calendar_logic import schedule_reply, wants_schedule  # noqa: E402
+from slack_client import post_slack_message  # noqa: E402
 
 
 def safe_error_code(error: Exception, schedule_requested: bool) -> str:
@@ -51,27 +51,6 @@ def valid_slack_signature(timestamp: str, signature: str, body: bytes) -> bool:
     base = b"v0:" + timestamp.encode("utf-8") + b":" + body
     expected = "v0=" + hmac.new(secret.encode("utf-8"), base, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, signature)
-
-
-def post_slack_message(channel: str, text: str, thread_ts: str | None = None) -> None:
-    token = os.environ.get("SLACK_BOT_TOKEN", "")
-    if not token:
-        raise RuntimeError("SLACK_BOT_TOKEN이 설정되지 않았습니다.")
-    payload = {"channel": channel, "text": text}
-    if thread_ts:
-        payload["thread_ts"] = thread_ts
-    request = Request(
-        "https://slack.com/api/chat.postMessage",
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json; charset=utf-8",
-        },
-    )
-    with urlopen(request, timeout=8) as response:
-        result = json.loads(response.read().decode("utf-8"))
-    if not result.get("ok"):
-        raise RuntimeError(f"Slack 답장 실패: {result.get('error', 'unknown_error')}")
 
 
 class handler(BaseHTTPRequestHandler):
